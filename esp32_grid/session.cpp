@@ -10,6 +10,7 @@
 int score;
 int timer;
 int sessionDuration;
+int cooldownDuration;
 bool running = false;
 bool waiting = false;
 unsigned long timeStamp;
@@ -22,12 +23,16 @@ void sessionStart() {
 
   // Get the duration of the session
   sendMessage("Fetching user\npreferences...\n");
-  String payload = httpGet("/api/session-duration");
+  String payload = httpGet("/api/esp32/config");
   StaticJsonDocument<256> doc;
+
   if (deserializeJson(doc, payload)) {
-    sessionDuration = 60; // default fallback value
+    // default fallback values
+    sessionDuration = 60;
+    cooldownDuration = 0;
   } else {
-    sessionDuration = doc["duration"];
+    sessionDuration = doc["sessionDuration"];
+    cooldownDuration = doc["cooldownDuration"];
   }
 
   sendMessage("Get Ready!\nStarting in 3...\n");
@@ -55,17 +60,18 @@ void sessionEnd() {
   turnOffLasers();
   beep(500);
 
-  int avgResponseTime;
-  if (score > 0) {
-    avgResponseTime = (sessionDuration * 1000) / score;
-  } else {
-    avgResponseTime = -1;
+  unsigned long totalResponseTime = 0;
+  for (size_t i = 0; i < responseTime.size(); i++) {
+    totalResponseTime += responseTime[i];
   }
 
+  int avgResponseTime = totalResponseTime / responseTime.size();
   sendSessionResult(avgResponseTime);
 
   String json = "{";
   json += "\"score\":" + String(score) + ",";
+  json += "\"sessionDuration\":" + String(sessionDuration) + ",";
+  json += "\"cooldownDuration\":" + String(cooldownDuration) + ",";
   json += "\"avgResponseTime\":" + String(avgResponseTime) + ",";
   json += "\"responseTime\":[";
 
@@ -77,9 +83,9 @@ void sessionEnd() {
   }
 
   json += "]}";
-  httpPost("/api/save-session-result", json);
+  String payload = httpPost("/api/esp32/save-session-result", json);
 
-  delay(3000);
+  delay(2000);
   askForNewSession();
   promptYesNo();
   waiting = true;
@@ -104,8 +110,11 @@ void updateScore() {
   score++;
   unsigned long curTimeStamp = millis();
   responseTime.push_back(curTimeStamp - scoreTimeStamp);
-  scoreTimeStamp = curTimeStamp;
+  turnOffCurrentLaser();
   sendSessionState(timer, score);
+  delay(cooldownDuration);
+  scoreTimeStamp = millis();
+  nextPoint();
 }
 
 bool isRunning() {

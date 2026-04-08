@@ -20,7 +20,6 @@ void loop() {
     if (isCurrentPointTouched()) {
       beep();         // buzzer feedback
       updateScore();  // increment score
-      nextPoint();  // move laser
     }
 
     updateTimer();

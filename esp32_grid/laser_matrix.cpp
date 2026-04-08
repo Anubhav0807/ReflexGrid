@@ -24,9 +24,6 @@ void laserInit() {
 }
 
 void nextPoint() {
-  if (i >= 0 && j >= 0)
-    digitalWrite(laserMatrix[i][j], LOW);
-
   do {
     i = random(0, n);
     j = random(0, m);
@@ -43,6 +40,11 @@ int getCurrentRow() {
 }
 int getCurrentCol() {
   return j;
+}
+
+void turnOffCurrentLaser() {
+  if (i >= 0 && j >= 0)
+    digitalWrite(laserMatrix[i][j], LOW);
 }
 
 void turnOffLasers() {
